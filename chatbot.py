@@ -1,4 +1,3 @@
-#text mining dengan menggunakan library Natural Language Toolkit (NLTK):
 import re
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
@@ -7,10 +6,16 @@ from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 import os
 import pandas as pd
 import joblib
+from sklearn.feature_extraction.text import TfidfVectorizer
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import vstack
 
-# data
+
+#MENGAMBIL DATASET
 dataset = pd.read_csv('train.csv')
 texts = dataset['question'].tolist()
+
 
 def text_preprocessing(text):
     text = text.lower()
@@ -53,108 +58,53 @@ else:
     # menyimpan preprocessing dataset
     joblib.dump(processed_texts, 'processed_texts.pkl')
 
-from sklearn.feature_extraction.text import TfidfVectorizer
 
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+while True:
+    query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
 
+    if query.lower() == 'exit':
+        print("Terima kasih! Sampai jumpa.")
+        break
 
+    processed_query = text_preprocessing(query)
+    tokens_query = text_tokenizing(processed_query)
+    filtered_tokens_query = text_filtering(tokens_query)
+    stemmed_tokens_query = text_stemming(filtered_tokens_query)
+    processed_query = ' '.join(stemmed_tokens_query)
 
-query = input("Masukkan pertanyaan Anda: ")
+    vectorizer = TfidfVectorizer()
+    if os.path.exists('tfidf_matrix_dataset.pkl'):
+        tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
+        vectorizer.fit(processed_texts)
+        tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
+        tfidf_matrix_query = vectorizer.transform([processed_query])
 
-# Text mining untuk query input
-processed_query = text_preprocessing(query)
-tokens_query = text_tokenizing(processed_query)
-filtered_tokens_query = text_filtering(tokens_query)
-stemmed_tokens_query = text_stemming(filtered_tokens_query)
-processed_query = ' '.join(stemmed_tokens_query)
+    else:
+        tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
+        tfidf_matrix_query = vectorizer.transform([processed_query])
+        tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
+        joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
 
-# gabungkan dataset dengan query
-# all_texts = processed_texts + [processed_query]
+    input_tokens = text_tokenizing(processed_query)
+    input_tfidf_per_word = {word: tfidf_matrix_query[0, vectorizer.vocabulary_[word]] for word in input_tokens}
 
-# tf idf vectorizer
-vectorizer = TfidfVectorizer()
-if os.path.exists('tfidf_matrix_dataset.pkl'):
-    tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
-    vectorizer.fit(processed_texts)
-    tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
-    print(tfidf_df)
-    tfidf_matrix_query = vectorizer.transform([processed_query])
+    while True:
+        tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
+        cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
+        most_similar_idx = np.argmax(cosine_similarities)
+        most_similar_idx_str = str(most_similar_idx)
+        jawaban = dataset['answer'][most_similar_idx]
+        print("\nAnswer:")
+        print(jawaban)
 
-else:
-    tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
-    tfidf_matrix_query = vectorizer.transform([processed_query])
-    tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
-    print(tfidf_df)
-    joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
+        feedback = input("Is the answer correct? (yes/no): ")
+        if feedback.lower() == "yes":
+            print("Great! Thank you for your feedback.")
+            break
+        else:
+            print("I'm sorry the answer is not correct. Let me try again.")
     
-
-# Menampilkan vektor TF-IDF untuk setiap kata dalam teks input
-input_tokens = text_tokenizing(processed_query)
-input_tfidf_per_word = {word: tfidf_matrix_query[0, vectorizer.vocabulary_[word]] for word in input_tokens}
-
-print("Vektor TF-IDF per kata untuk Teks Input:")
-for word, tfidf_value in input_tfidf_per_word.items():
-    print(f"{word}: {tfidf_value}")
-
-# menggabungkan vektor dataset dan query
-from scipy.sparse import vstack
-tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
-
-cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
-
-# mendapatkan indeks dokumen terdekat dengan teks input berdasarkan cosine similarity
-most_similar_idx = np.argmax(cosine_similarities)
-most_similar_idx_str = str(most_similar_idx)
-print("most similiar index = " + most_similar_idx_str)
-
-most_similar_text = texts[most_similar_idx]
-print("Pertanyaan yang paling mirip dengan teks input:")
-print(most_similar_text)
-
-jawaban = dataset['answer'][most_similar_idx]
-print("\nanswer:")
-print(jawaban)
-
-
-
-# Preprocessing
-preprocessed_text = text_preprocessing(most_similar_text)
-
-# Tokenizing
-tokenized_text = text_tokenizing(preprocessed_text)
-
-# Filtering
-filtered_text = text_filtering(tokenized_text)
-
-# Stemming
-stemmed_text = text_stemming(filtered_text)
-
-# Print hasil
-print("Teks Awal:", most_similar_text)
-print("Hasil Preprocessing:", preprocessed_text)
-print("Hasil Tokenizing:", tokenized_text)
-print("Hasil Filtering:", filtered_text)
-print("Hasil Stemming:", stemmed_text)
-
-# Menampilkan jawaban dari kolom "answer"
-answer_text = dataset['answer'][most_similar_idx]
-print("Jawaban Awal:", answer_text)
-
-# Preprocessing pada jawaban
-preprocessed_answer = text_preprocessing(answer_text)
-
-# Tokenizing pada jawaban
-tokenized_answer = text_tokenizing(preprocessed_answer)
-
-# Filtering pada jawaban
-filtered_answer = text_filtering(tokenized_answer)
-
-# Stemming pada jawaban
-stemmed_answer = text_stemming(filtered_answer)
-
-# Print hasil
-print("\nHasil Preprocessing Jawaban:", preprocessed_answer)
-print("Hasil Tokenizing Jawaban:", tokenized_answer)
-print("Hasil Filtering Jawaban:", filtered_answer)
-print("Hasil Stemming Jawaban:", stemmed_answer)
+    next_question = input("Do you have another question? (yes/no): ")
+    if next_question.lower() != "yes":
+        print("Terima kasih! Sampai jumpa.")
+        break
