@@ -59,6 +59,9 @@ else:
     joblib.dump(processed_texts, 'processed_texts.pkl')
 
 
+# Inisialisasi dictionary untuk menyimpan informasi akurasi tiap pertanyaan
+accuracy_info = {}
+
 while True:
     query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
 
@@ -88,6 +91,9 @@ while True:
     input_tokens = text_tokenizing(processed_query)
     input_tfidf_per_word = {word: tfidf_matrix_query[0, vectorizer.vocabulary_[word]] for word in input_tokens}
 
+    # Hitung akurasi sebelumnya jika ada
+    previous_accuracy = accuracy_info.get(query, 0)
+
     while True:
         tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
         cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
@@ -100,11 +106,21 @@ while True:
         feedback = input("Is the answer correct? (yes/no): ")
         if feedback.lower() == "yes":
             print("Great! Thank you for your feedback.")
+            # Tingkatkan akurasi untuk pertanyaan ini
+            accuracy_info[query] = previous_accuracy + 1
             break
         else:
             print("I'm sorry the answer is not correct. Let me try again.")
+            # Kurangi akurasi untuk pertanyaan ini
+            accuracy_info[query] = max(previous_accuracy - 1, 0)
     
     next_question = input("Do you have another question? (yes/no): ")
     if next_question.lower() != "yes":
         print("Terima kasih! Sampai jumpa.")
         break
+
+# Tampilkan akurasi untuk setiap pertanyaan
+for query, accuracy in accuracy_info.items():
+    print(f"Question: {query}\nAccuracy: {accuracy}\n")
+
+
