@@ -13,7 +13,7 @@ from scipy.sparse import vstack
 
 
 #MENGAMBIL DATASET
-dataset = pd.read_csv('train.csv')
+dataset = pd.read_csv('train_new.csv')
 texts = dataset['question'].tolist()
 
 
