@@ -11,6 +11,9 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
 from flask import Flask, jsonify, render_template, request
+from prisma import generator, db
+
+#db
 
 #MENGAMBIL DATASET
 dataset = pd.read_csv('train.csv')
@@ -69,16 +72,17 @@ app.static_folder = 'static'
 def home():
     return render_template("index.html")
 
-@app.route("/get")
+@app.route("/get", methods=["POST"])
 def get_bot_response():
     while True:
         # query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
         query = request.args.get('msg')
+        query = db.Pertanyaan.create(pertanyaan=query)
 
         if query.lower() == 'exit':
             print("Terima kasih! Sampai jumpa.")
             break
-
+        
         processed_query = text_preprocessing(query)
         tokens_query = text_tokenizing(processed_query)
         filtered_tokens_query = text_filtering(tokens_query)
@@ -112,27 +116,13 @@ def get_bot_response():
             jawaban = dataset['answer'][most_similar_idx]
             print("\nAnswer:")
             print(jawaban)
+            db.jawaban.create(id_pertanyaan=query.id, jawaban=jawaban,)
             response = {
                 'jawaban': jawaban
             }
 
             return jsonify(response)
-
-            feedback = input("Is the answer correct? (yes/no): ")
-            if feedback.lower() == "yes":
-                print("Great! Thank you for your feedback.")
-                # Tingkatkan akurasi untuk pertanyaan ini
-                accuracy_info[query] = previous_accuracy + 1
-                break
-            else:
-                print("I'm sorry the answer is not correct. Let me try again.")
-                # Kurangi akurasi untuk pertanyaan ini
-                accuracy_info[query] = max(previous_accuracy - 1, 0)
-        
-        next_question = input("Do you have another question? (yes/no): ")
-        if next_question.lower() != "yes":
-            print("Terima kasih! Sampai jumpa.")
-            break
+            
 
     # Tampilkan akurasi untuk setiap pertanyaan
     for query, accuracy in accuracy_info.items():

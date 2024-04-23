@@ -12,7 +12,6 @@
 </head>
 
 <body>
-    <!-- partial:index.partial.html -->
     <section class="msger">
         <header class="msger-header">
             <div class="msger-header-title">
@@ -94,6 +93,13 @@
         function botResponse(rawText) {
 
             // Bot Response
+            $.get("/get", { msg: rawText }).done(function (data) {
+                console.log(rawText);
+                console.log(data);
+                const msgText = data.jawaban;
+                appendMessage(BOT_NAME, BOT_IMG, "left", msgText);
+
+            });
             $.get("/get", { msg: rawText }).done(function (data) {
                 console.log(rawText);
                 console.log(data);

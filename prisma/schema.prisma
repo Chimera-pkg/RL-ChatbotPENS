@@ -1,0 +1,21 @@
+generator db {
+    provider = "prisma-client-py"
+    interface = "sync"
+}
+datasource db {
+    provider = "mysql"
+    url = env("DATABASE_URL")
+}
+
+model Pertanyaan {
+    id Int @id @default(autoincrement())
+    pertanyaan String
+}
+
+model Jawaban {
+    id Int @id @default(autoincrement())
+    id_pertanyaan Int
+    jawaban String    
+    score Float    
+}
+
