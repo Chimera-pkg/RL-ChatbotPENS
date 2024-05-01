@@ -119,6 +119,43 @@ def get_bot_response():
             }
         
             return jsonify(response)
-            
+
+@app.route("/response", methods=["POST"])
+def handle_response():
+    # Ambil respons dari permintaan POST
+    response = request.args.get("response")
+    
+    # Lakukan sesuatu dengan respons, seperti memanggil fungsi sendResponse
+    # Pastikan untuk menentukan logika bisnis Anda di sini
+
+    # Kembalikan respons HTTP yang sesuai, misalnya 200 OK
+    return "Response received successfully"
+
+@app.route("/reward", methods=["POST"])
+def reward():
+    score = request.args.get("score")
+    jawaban = request.args.get("jawaban")
+
+    # Tambahkan reward ke skor jawaban dalam database
+    sql = "UPDATE jawaban SET (score) = score + %s WHERE jawaban = %s"
+    val = (score, jawaban)
+    mycursor.execute(sql, val)
+    mydb.commit()
+
+    return "Reward berhasil diberikan"
+
+@app.route("/punish", methods=["POST"])
+def punish():
+    score = request.args.get("score")
+    jawaban = request.args.get("jawaban")
+
+    # Kurangi skor jawaban dalam database
+    sql = "UPDATE jawaban SET (score) = score - %s WHERE jawaban = %s"
+    val = (score, jawaban)
+    mycursor.execute(sql, val)
+    mydb.commit()
+
+    return "Punishment berhasil diberikan"
+
 if __name__ == "__main__":
     app.run()

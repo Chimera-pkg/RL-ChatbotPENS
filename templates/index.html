@@ -69,7 +69,7 @@
             botResponse(msgText);
         });
 
-        function appendMessage(name, img, side, text) {
+        function appendMessage(name, img, side, text, sendResponse) {
     const msgHTML = `
         <div class="msg ${side}-msg">
             <div class="msg-img" style="background-image: url(${img})"></div>
@@ -83,18 +83,12 @@
         </div>
         <div class="msg ${side}-msg">
             <h3>Apakah Jawaban ini membantu anda? </h3>
-            <button type="submit" class="msg-response-btn" onclick="sendResponse('${text}', 'yes')">Ya</button>
-            <button type="submit" class="msg-response-btn" onclick="sendResponse('${text}', 'no')">Tidak</button>
+            <button type="submit" class="msg-response-btn" onclick="sendResponse('${sendResponse}', 'yes')">Ya</button>
+            <button type="submit" class="msg-response-btn" onclick="sendResponse('${sendResponse}', 'no')">Tidak</button>
         </div>
     `;
     msgerChat.insertAdjacentHTML("beforeend", msgHTML);
     msgerChat.scrollTop += 500;
-}
-function sendResponse(question, response) {
-    // Kirim respons pengguna ke backend
-    $.post("/response", { question: question, response: response }).done(function (data) {
-        // Lakukan sesuatu dengan respons dari backend jika perlu
-    });
 }
 
         function botResponse(rawText) {
@@ -110,6 +104,33 @@ function sendResponse(question, response) {
 
         }
 
+        function sendResponse(response, score) {
+                // Kirim respons pengguna ke backend
+                $.post("/response", { response: response, score: score }).done(function (data) {
+                    // Lakukan sesuatu dengan respons dari backend jika perlu
+                    if (response === 'yes') {
+                        // Tambahkan reward
+                        reward(3, score);
+                    } else if (response === 'no') {
+                        // Tambahkan punishment
+                        punish(3, score);
+                    }
+                });
+            }
+
+        function reward(score, jawaban) {
+                // Kirim request ke backend untuk memberikan reward
+                $.post("/reward", { score: score, jawaban: jawaban }).done(function (data) {
+                    // Lakukan sesuatu setelah menerima respons dari backend
+                });
+            }
+
+        function punish(score, jawaban) {
+                // Kirim request ke backend untuk memberikan punishment
+                $.post("/punish", { score: score, jawaban: jawaban }).done(function (data) {
+                    // Lakukan sesuatu setelah menerima respons dari backend
+                });
+            }
 
         // Utils
         function get(selector, root = document) {
