@@ -11,16 +11,25 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
 from flask import Flask, jsonify, render_template, request
-from prisma import Client
-import asyncio
-from prisma import Prisma
 
-# PRISMA
-from dbtest import simpan_pertanyaan
-prisma = Client()
-prisma.connect()
+#PRISMA
+# from prisma import Prisma
+# from prisma.models import Jawaban
+# prisma = Prisma()
 
-#MENGAMBIL DATASET
+#SQL AN TOK
+import mysql.connector
+
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="chatbot"
+)
+mycursor = mydb.cursor()
+# --------------------
+
+
 dataset = pd.read_csv('train_new.csv')
 texts = dataset['question'].tolist()
 
@@ -78,7 +87,6 @@ def home():
 
 def get_bot_response():
     while True:
-        # query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
         query = request.args.get('msg')
  
         processed_query = text_preprocessing(query)
@@ -106,11 +114,16 @@ def get_bot_response():
             most_similar_idx = np.argmax(cosine_similarities)
             # most_similar_idx_str = str(most_similar_idx)
             jawaban = dataset['answer'][most_similar_idx]
+            sql = "INSERT INTO jawaban (jawaban) VALUES (%s)"
+            val = (jawaban,)
+            mycursor.execute(sql,val)
+            mydb.commit()
             print("\nAnswer:")
             print(jawaban)
             response = {
                 'jawaban': jawaban
             }
+        
             return jsonify(response)
             
 if __name__ == "__main__":
