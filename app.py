@@ -11,13 +11,6 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
 from flask import Flask, jsonify, render_template, request
-
-#PRISMA
-# from prisma import Prisma
-# from prisma.models import Jawaban
-# prisma = Prisma()
-
-#SQL AN TOK
 import mysql.connector
 
 mydb = mysql.connector.connect(
@@ -27,8 +20,6 @@ mydb = mysql.connector.connect(
     database="chatbot"
 )
 mycursor = mydb.cursor()
-# --------------------
-
 
 dataset = pd.read_csv('train_new.csv')
 texts = dataset['question'].tolist()
@@ -88,14 +79,17 @@ def home():
 def get_bot_response():
     while True:
         query = request.args.get('msg')
- 
+        sql = "INSERT INTO pertanyaan (pertanyaan) VALUES (%s)"
+        val = (query,)
+        mycursor.execute(sql,val)
+        mydb.commit()
         processed_query = text_preprocessing(query)
         tokens_query = text_tokenizing(processed_query)
         filtered_tokens_query = text_filtering(tokens_query)
         stemmed_tokens_query = text_stemming(filtered_tokens_query)
         processed_query = ' '.join(stemmed_tokens_query)
-
         vectorizer = TfidfVectorizer()
+
         if os.path.exists('tfidf_matrix_dataset.pkl'):
             tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
             vectorizer.fit(processed_texts)
@@ -112,7 +106,7 @@ def get_bot_response():
             tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
             cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
             most_similar_idx = np.argmax(cosine_similarities)
-            # most_similar_idx_str = str(most_similar_idx)
+            most_similar_idx_str = str(most_similar_idx)
             jawaban = dataset['answer'][most_similar_idx]
             sql = "INSERT INTO jawaban (jawaban) VALUES (%s)"
             val = (jawaban,)
