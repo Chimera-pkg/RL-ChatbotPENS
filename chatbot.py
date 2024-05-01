@@ -11,7 +11,6 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
 
-
 #MENGAMBIL DATASET
 dataset = pd.read_csv('train_new.csv')
 texts = dataset['question'].tolist()

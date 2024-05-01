@@ -1,130 +1,58 @@
-import re
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
-import os
 import pandas as pd
-import joblib
-from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
+from flask import Flask, request, jsonify
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from scipy.sparse import vstack
 
+app = Flask(__name__)
 
-#MENGAMBIL DATASET
-dataset = pd.read_csv('train.csv')
-texts = dataset['question'].tolist()
+# 1. Membaca Dataset dari CSV
+dataset = pd.read_csv('train_new.csv')
 
+# 2. Inisialisasi Chatbot
+pertanyaan = dataset['question'].tolist()
+jawaban = dataset['answer'].tolist()
 
-def text_preprocessing(text):
-    text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)
-    text = text.strip()
+# Inisialisasi TF-IDF Vectorizer
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_matrix = tfidf_vectorizer.fit_transform(pertanyaan)
 
-    return text
+# Inisialisasi reward dan punishment menggunakan NumPy
+reward_punishment = np.zeros((len(jawaban), 2))  # Matriks untuk menyimpan reward dan punishment
+np.save('reward_punishment.npy', reward_punishment)  # Menyimpan data ke file npy
 
-def text_tokenizing(text):
-    tokens = word_tokenize(text)
+# 3. Menerima Pertanyaan
+@app.route("/chat", methods=["POST"])
+def chat():
+    pertanyaan_pengguna = request.json.get("pertanyaan")
 
-    return tokens
+    # 4. Menghitung Similarity
+    vektor_tfidf_pertanyaan = tfidf_vectorizer.transform([pertanyaan_pengguna])
+    cosine_similarities = cosine_similarity(vektor_tfidf_pertanyaan, tfidf_matrix)
+    best_match_index = cosine_similarities.argmax()
 
-def text_filtering(tokens):
-    stop_words = set(stopwords.words('indonesian'))
-    tokens = [word for word in tokens if word not in stop_words]
+    # 5. Pilih Jawaban Terbaik
+    jawaban_terbaik = jawaban[best_match_index]
 
-    return tokens
+    return jsonify({"jawaban": jawaban_terbaik})
 
-def text_stemming(tokens):
-    stemmer = StemmerFactory().create_stemmer()
-    stemmed_tokens = [stemmer.stem(word) for word in tokens]
+# 6. Menerima Feedback
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    feedback_data = request.json
+    jawaban_terpilih = feedback_data.get("jawaban")
+    feedback = feedback_data.get("feedback")
 
-    return stemmed_tokens
+    # 7. Mengupdate Reward
+    reward_punishment = np.load('reward_punishment.npy')
+    if feedback == "ya":
+        reward_punishment[jawaban.index(jawaban_terpilih), 0] += 1  # Increment reward
+    elif feedback == "tidak":
+        reward_punishment[jawaban.index(jawaban_terpilih), 1] += 1  # Increment punishment
 
-if os.path.exists('processed_texts.pkl'):
-    processed_texts = joblib.load('processed_texts.pkl')
-else:
-    texts = dataset['question'].tolist()
-    processed_texts = []
+    np.save('reward_punishment.npy', reward_punishment)  # Menyimpan data ke file npy
 
-    for text in texts:
-        text = text_preprocessing(text)
-        tokens = text_tokenizing(text)
-        filtered_tokens = text_filtering(tokens)
-        stemmed_tokens = text_stemming(filtered_tokens)
-        processed_text = ' '.join(stemmed_tokens)
-        processed_texts.append(processed_text)
+    return jsonify({"status": "success"})
 
-    # menyimpan preprocessing dataset
-    joblib.dump(processed_texts, 'processed_texts.pkl')
-
-
-# Inisialisasi dictionary untuk menyimpan informasi akurasi tiap pertanyaan
-accuracy_info = {}
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-while True:
-    query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
-
-    if query.lower() == 'exit':
-        print("Terima kasih! Sampai jumpa.")
-        break
-
-    processed_query = text_preprocessing(query)
-    tokens_query = text_tokenizing(processed_query)
-    filtered_tokens_query = text_filtering(tokens_query)
-    stemmed_tokens_query = text_stemming(filtered_tokens_query)
-    processed_query = ' '.join(stemmed_tokens_query)
-
-    vectorizer = TfidfVectorizer()
-    if os.path.exists('tfidf_matrix_dataset.pkl'):
-        tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
-        vectorizer.fit(processed_texts)
-        tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
-        tfidf_matrix_query = vectorizer.transform([processed_query])
-
-    else:
-        tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
-        tfidf_matrix_query = vectorizer.transform([processed_query])
-        tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
-        joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
-
-    input_tokens = text_tokenizing(processed_query)
-    input_tfidf_per_word = {word: tfidf_matrix_query[0, vectorizer.vocabulary_[word]] for word in input_tokens}
-
-    # Hitung akurasi sebelumnya jika ada
-    previous_accuracy = accuracy_info.get(query, 0)
-
-    while True:
-        tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
-        cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
-        most_similar_idx = np.argmax(cosine_similarities)
-        most_similar_idx_str = str(most_similar_idx)
-        jawaban = dataset['answer'][most_similar_idx]
-        print("\nAnswer:")
-        print(jawaban)
-
-        feedback = input("Is the answer correct? (yes/no): ")
-        if feedback.lower() == "yes":
-            print("Great! Thank you for your feedback.")
-            # Tingkatkan akurasi untuk pertanyaan ini
-            accuracy_info[query] = previous_accuracy + 1
-            break
-        else:
-            print("I'm sorry the answer is not correct. Let me try again.")
-            # Kurangi akurasi untuk pertanyaan ini
-            accuracy_info[query] = max(previous_accuracy - 1, 0)
-    
-    next_question = input("Do you have another question? (yes/no): ")
-    if next_question.lower() != "yes":
-        print("Terima kasih! Sampai jumpa.")
-        break
-
-# Tampilkan akurasi untuk setiap pertanyaan
-for query, accuracy in accuracy_info.items():
-    print(f"Question: {query}\nAccuracy: {accuracy}\n")
-
-
+if __name__ == "__main__":
+    app.run(debug=True)

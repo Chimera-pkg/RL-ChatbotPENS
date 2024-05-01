@@ -8,14 +8,14 @@ datasource db {
 }
 
 model Pertanyaan {
-    id Int @id @default(autoincrement())
-    pertanyaan String
+  id        Int      @id @default(autoincrement())
+  pertanyaan String
+  createdAt DateTime @default(now())
 }
 
 model Jawaban {
-    id Int @id @default(autoincrement())
-    id_pertanyaan Int
-    jawaban String    
-    score Float    
+  id        Int      @id @default(autoincrement())
+  jawaban   String
+  createdAt DateTime @default(now())
 }
 

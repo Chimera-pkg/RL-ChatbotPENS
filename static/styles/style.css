@@ -94,6 +94,12 @@ body {
     background: var(--left-msg-bg);
 }
 
+.msg-response-btn {
+    max-width: 450px;
+    padding: 15px;
+    border-radius: 15px;
+    background: var(--left-msg-bg);
+}
 .msg-info {
     display: flex;
     justify-content: space-between;

@@ -11,14 +11,18 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
 from flask import Flask, jsonify, render_template, request
-from prisma import generator, db
+from prisma import Client
+import asyncio
+from prisma import Prisma
 
-#db
+# PRISMA
+from dbtest import simpan_pertanyaan
+prisma = Client()
+prisma.connect()
 
 #MENGAMBIL DATASET
 dataset = pd.read_csv('train_new.csv')
 texts = dataset['question'].tolist()
-
 
 def text_preprocessing(text):
     text = text.lower()
@@ -62,9 +66,6 @@ else:
     joblib.dump(processed_texts, 'processed_texts.pkl')
 
 
-# Inisialisasi dictionary untuk menyimpan informasi akurasi tiap pertanyaan
-accuracy_info = {}
-
 app = Flask(__name__)
 app.static_folder = 'static'
 
@@ -72,17 +73,14 @@ app.static_folder = 'static'
 def home():
     return render_template("index.html")
 
-@app.route("/get", methods=["POST"])
+@app.route("/get", methods=['GET','POST'])
+
+
 def get_bot_response():
     while True:
         # query = input("Masukkan pertanyaan Anda (atau ketik 'exit' untuk keluar): ")
         query = request.args.get('msg')
-        query = db.Pertanyaan.create(pertanyaan=query)
-
-        if query.lower() == 'exit':
-            print("Terima kasih! Sampai jumpa.")
-            break
-        
+ 
         processed_query = text_preprocessing(query)
         tokens_query = text_tokenizing(processed_query)
         filtered_tokens_query = text_filtering(tokens_query)
@@ -102,12 +100,6 @@ def get_bot_response():
             tfidf_df = pd.DataFrame(tfidf_matrix_dataset.toarray(), columns=vectorizer.get_feature_names_out())
             joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
 
-        input_tokens = text_tokenizing(processed_query)
-        # input_tfidf_per_word = {word: tfidf_matrix_query[0, vectorizer.vocabulary_[word]] for word in input_tokens}
-
-        # Hitung akurasi sebelumnya jika ada
-        previous_accuracy = accuracy_info.get(query, 0)
-
         while True:
             tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
             cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
@@ -116,18 +108,10 @@ def get_bot_response():
             jawaban = dataset['answer'][most_similar_idx]
             print("\nAnswer:")
             print(jawaban)
-            db.jawaban.create(id_pertanyaan=query.id, jawaban=jawaban,)
             response = {
                 'jawaban': jawaban
             }
-
             return jsonify(response)
             
-
-    # Tampilkan akurasi untuk setiap pertanyaan
-    for query, accuracy in accuracy_info.items():
-        print(f"Question: {query}\nAccuracy: {accuracy}\n")
-
-
 if __name__ == "__main__":
     app.run()
