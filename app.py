@@ -80,7 +80,7 @@ def get_bot_response():
         sql = "INSERT INTO pertanyaan (pertanyaan) VALUES (%s)"
         val = (query,)
         mycursor.execute(sql,val)
-        mydb.commit()
+        # mydb.commit()
         processed_query = text_preprocessing(query)
         tokens_query = text_tokenizing(processed_query)
         filtered_tokens_query = text_filtering(tokens_query)
