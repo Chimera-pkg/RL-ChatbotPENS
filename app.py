@@ -74,8 +74,6 @@ def home():
     return render_template("index.html")
 
 @app.route("/get", methods=['GET','POST'])
-
-
 def get_bot_response():
     while True:
         query = request.args.get('msg')
@@ -120,42 +118,61 @@ def get_bot_response():
         
             return jsonify(response)
 
+
 @app.route("/response", methods=["POST"])
 def handle_response():
     # Ambil respons dari permintaan POST
-    response = request.args.get("response")
-    
+    response = request.args.get('sendResponse')
+    response = request.args.get('response')
+
     # Lakukan sesuatu dengan respons, seperti memanggil fungsi sendResponse
     # Pastikan untuk menentukan logika bisnis Anda di sini
 
+    # Misalnya, jika response adalah "benar", berikan reward 10
+    if response == "yes":
+        reward_score = 10
+        jawaban = request.args.get("jawaban")
+        reward(jawaban, reward_score)
+    else:
+        # Jika response bukan "benar", berikan punishment 5
+        punishment_score = 5
+        jawaban = request.args.get("jawaban")
+        punish(jawaban, punishment_score)
+
     # Kembalikan respons HTTP yang sesuai, misalnya 200 OK
-    return "Response received successfully"
+    return "Hello, {}!".format("50")
 
-@app.route("/reward", methods=["POST"])
-def reward():
-    score = request.args.get("score")
-    jawaban = request.args.get("jawaban")
 
-    # Tambahkan reward ke skor jawaban dalam database
-    sql = "UPDATE jawaban SET (score) = score + %s WHERE jawaban = %s"
-    val = (score, jawaban)
-    mycursor.execute(sql, val)
+def reward(jawaban_id, score):
+    global mycursor
+    global mydb
+
+# Mendapatkan ID data terakhir
+sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
+mycursor.execute(sql_select_last_id)
+result = mycursor.fetchone()
+last_id = result[0] if result else None
+
+# Jika ada data terakhir, lakukan update
+if last_id:
+    sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+    mycursor.execute(sql_update_score)
     mydb.commit()
+    print("Score berhasil diperbarui.")
+else:
+    print("Tidak ada data jawaban untuk diperbarui.")
 
-    return "Reward berhasil diberikan"
 
-@app.route("/punish", methods=["POST"])
-def punish():
-    score = request.args.get("score")
-    jawaban = request.args.get("jawaban")
 
+def punish(jawaban_id, score):
+    global mycursor
+    global mydb
     # Kurangi skor jawaban dalam database
-    sql = "UPDATE jawaban SET (score) = score - %s WHERE jawaban = %s"
-    val = (score, jawaban)
+    sql = "UPDATE jawaban SET score = score + 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1);"
+    val = (score, jawaban_id)
     mycursor.execute(sql, val)
     mydb.commit()
 
-    return "Punishment berhasil diberikan"
 
 if __name__ == "__main__":
     app.run()
