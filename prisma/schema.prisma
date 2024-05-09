@@ -17,6 +17,7 @@ model Jawaban {
   id        Int      @id @default(autoincrement())
   jawaban   String
   createdAt DateTime @default(now())
+  cosine    Float
   score     Float
 }
 
