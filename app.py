@@ -154,15 +154,35 @@ def reward(jawaban_id, score):
     return "Reward handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
 
 
-def punish(jawaban_id, score):
-    global mycursor
-    global mydb
-    sql = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-    val = (score, jawaban_id)
-    mydb.commit()
-    mycursor.execute(sql, val)
+def punish(jawaban, score):
+    try:
+        mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="chatbot"
+        )
+        mycursor = mydb.cursor()
 
-    return "Punish handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
+        # Query SQL dengan placeholder untuk parameter
+        sql = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        val = (jawaban, score)
+
+        # Eksekusi query dengan parameter yang diberikan
+        mycursor.execute(sql, val)
+
+        mydb.commit()
+
+        print(mycursor.rowcount, "record inserted.")
+
+    except mysql.connector.Error as error:
+        print("Failed to insert record into MySQL table:", error)
+
+    finally:
+        if mydb.is_connected():
+            mycursor.close()
+            mydb.close()
+
 
 
 if __name__ == "__main__":
