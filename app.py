@@ -3,14 +3,17 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import vstack
+
 import os
 import pandas as pd
 import joblib
-from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from scipy.sparse import vstack
+
 from flask import Flask, jsonify, render_template, request
+from flask_cors import CORS, cross_origin
 import mysql.connector
 
 mydb = mysql.connector.connect(
@@ -67,6 +70,8 @@ else:
 
 
 app = Flask(__name__)
+CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 app.static_folder = 'static'
 
 @app.route("/")
@@ -117,23 +122,38 @@ def get_bot_response():
         }
         return jsonify(response)
 
-
-@app.route("/response", methods=['GET','POST'])
-def handle_response():
-    response = request.args.get('sendResponse')
-
-    if response == "yes":
-        score = 10
-        jawaban = request.args.get("jawaban")
-        reward(jawaban, score)
-        
+def response_path():
+    data = request.get_json()
+    if data is not None and 'yes' in data and 'no' in data:
+        reward = data['yes']
+        punish = data['no']
+        print('json masuk')
     else:
-        # Jika response bukan "benar", berikan punishment 5
-        score = 5
-        jawaban = request.args.get("jawaban")
-        punish(jawaban, score)
+        print('Invalid JSON data')  # Tambahkan pesan kesalahan jika data tidak lengkap atau tidak sesuai
 
-    return "Response handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
+
+
+@app.route("/response", methods=['GET', 'POST'])
+def handle_response():
+    if request.method == 'POST':
+        data = request.get_json()
+        response = data.get('response')
+        print("access response:", response)
+
+        if response == "yes":
+            score = 10
+            print("access yes reward")
+            jawaban = data.get("jawaban")
+            reward(jawaban, score)
+        else:
+            score = 5
+            jawaban = data.get("jawaban")
+            punish(jawaban, score)
+
+        return "Response handled successfully"
+    else:
+        return "Invalid method"
+
 
 def reward(jawaban_id, score):
     global mycursor
@@ -144,14 +164,16 @@ def reward(jawaban_id, score):
     last_id = result[0] if result else None
 
     if last_id:
-        sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-        mydb.commit()
+        sql_update_score = "UPDATE jawaban SET score = score + 999 WHERE id = 24"
+        # sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
         mycursor.execute(sql_update_score)
+        mydb.commit()
         print("Score berhasil diperbarui.")
     else:
         print("Tidak ada data jawaban untuk diperbarui.")
     
     return "Reward handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
+
 
 
 def punish(jawaban, score):
@@ -165,7 +187,7 @@ def punish(jawaban, score):
         mycursor = mydb.cursor()
 
         # Query SQL dengan placeholder untuk parameter
-        sql = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        sql = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
         val = (jawaban, score)
 
         # Eksekusi query dengan parameter yang diberikan

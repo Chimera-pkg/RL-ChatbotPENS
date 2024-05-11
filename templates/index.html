@@ -103,20 +103,35 @@
             });
 
         }
+        
+        function sendResponse(score, response) {
+    console.log(score);
+    console.log(response);
 
-        function sendResponse(response, score) {
-                // Kirim respons pengguna ke backend
-                $.post("/response", { response: response, score: score }).done(function (data) {
-                    // Lakukan sesuatu dengan respons dari backend jika perlu
-                    if (response === 'yes') {
-                        // Tambahkan reward
-                        reward(3, score);
-                    } else if (response === 'no') {
-                        // Tambahkan punishment
-                        punish(3, score);
-                    }
-                });
-            }
+    fetch("/response", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json', // Tetapkan Content-Type ke application/json
+        },
+        body: JSON.stringify({ response: response, score: score }), // Konversi data menjadi JSON string sebelum mengirim
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response from server:', data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+    
+
+
 
         function reward(score, jawaban) {
                 // Kirim request ke backend untuk memberikan reward
@@ -143,7 +158,8 @@
 
             return `${h.slice(-2)}:${m.slice(-2)}`;
         }
-
+    
+        
 
 
     </script>
