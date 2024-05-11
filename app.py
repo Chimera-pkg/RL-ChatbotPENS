@@ -164,8 +164,8 @@ def reward(jawaban_id, score):
     last_id = result[0] if result else None
 
     if last_id:
-        sql_update_score = "UPDATE jawaban SET score = score + 999 WHERE id = 24"
-        # sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        # sql_update_score = "UPDATE jawaban SET score = score + 999 WHERE id = 5"
+        sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
         mycursor.execute(sql_update_score)
         mydb.commit()
         print("Score berhasil diperbarui.")
@@ -177,33 +177,52 @@ def reward(jawaban_id, score):
 
 
 def punish(jawaban, score):
-    try:
-        mydb = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="chatbot"
-        )
-        mycursor = mydb.cursor()
+    global mycursor
+    global mydb
+    sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
+    mycursor.execute(sql_select_last_id)
+    result = mycursor.fetchone()
+    last_id = result[0] if result else None
 
-        # Query SQL dengan placeholder untuk parameter
-        sql = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-        val = (jawaban, score)
-
-        # Eksekusi query dengan parameter yang diberikan
-        mycursor.execute(sql, val)
-
+    if last_id:
+        sql_update_score = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        mycursor.execute(sql_update_score)
         mydb.commit()
+        print("punish Score berhasil diperbarui.")
+    else:
+        print("Tidak ada data jawaban untuk diperbarui.")
+    
+    return "Punish handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
 
-        print(mycursor.rowcount, "record inserted.")
 
-    except mysql.connector.Error as error:
-        print("Failed to insert record into MySQL table:", error)
+# def punish(jawaban, score):
+#     try:
+#         mydb = mysql.connector.connect(
+#             host="localhost",
+#             user="root",
+#             password="",
+#             database="chatbot"
+#         )
+#         mycursor = mydb.cursor()
 
-    finally:
-        if mydb.is_connected():
-            mycursor.close()
-            mydb.close()
+#         # Query SQL dengan placeholder untuk parameter
+#         sql = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+#         val = (jawaban, score)
+
+#         # Eksekusi query dengan parameter yang diberikan
+#         mycursor.execute(sql, val)
+
+#         mydb.commit()
+
+#         print(mycursor.rowcount, "record inserted.")
+
+#     except mysql.connector.Error as error:
+#         print("Failed to insert record into MySQL table:", error)
+
+#     finally:
+#         if mydb.is_connected():
+#             mycursor.close()
+#             mydb.close()
 
 
 
