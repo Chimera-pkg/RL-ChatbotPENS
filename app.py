@@ -107,13 +107,10 @@ def get_bot_response():
         most_similar_idx = np.argmax(cosine_similarities)
         jawaban = dataset['answer'][most_similar_idx]
         cosine_similarity_value = float(cosine_sim[most_similar_idx])
-       # Menyimpan jawaban dan cosine similarity ke dalam database
-        sql = "INSERT INTO jawaban (jawaban, cosine) VALUES (%s, %s)"
+        sql = "INSERT INTO jawaban (jawaban, cosine, score) VALUES (%s, %s, 1)"
         val = (jawaban, cosine_similarity_value)
         mycursor.execute(sql, val)
         mydb.commit()
-
-        # Menampilkan jawaban dan cosine similarity
         print("\nAnswer:")
         print(jawaban)
         print("Cosine Similarity:", cosine_similarity_value)
@@ -125,11 +122,9 @@ def get_bot_response():
 def response_path():
     data = request.get_json()
     if data is not None and 'yes' in data and 'no' in data:
-        reward = data['yes']
-        punish = data['no']
         print('json masuk')
     else:
-        print('Invalid JSON data')  # Tambahkan pesan kesalahan jika data tidak lengkap atau tidak sesuai
+        print('Invalid JSON data')
 
 
 
@@ -138,92 +133,49 @@ def handle_response():
     if request.method == 'POST':
         data = request.get_json()
         response = data.get('response')
-        print("access response:", response)
 
         if response == "yes":
-            score = 10
-            print("access yes reward")
             jawaban = data.get("jawaban")
-            reward(jawaban, score)
+            reward(jawaban)
         else:
-            score = 5
             jawaban = data.get("jawaban")
-            punish(jawaban, score)
+            punish(jawaban)
 
         return "Response handled successfully"
     else:
         return "Invalid method"
 
 
-def reward(jawaban_id, score):
-    global mycursor
-    global mydb
+def reward(jawaban_id):
     sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
     mycursor.execute(sql_select_last_id)
     result = mycursor.fetchone()
     last_id = result[0] if result else None
 
     if last_id:
-        # sql_update_score = "UPDATE jawaban SET score = score + 999 WHERE id = 5"
-        sql_update_score = "UPDATE jawaban SET score = score + 500 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        sql_update_score = "UPDATE jawaban SET score = score + (score + (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        print(sql_update_score)
         mycursor.execute(sql_update_score)
         mydb.commit()
-        print("Score berhasil diperbarui.")
+        print("Reward Score berhasil diperbarui.")
     else:
-        print("Tidak ada data jawaban untuk diperbarui.")
-    
-    return "Reward handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
+        print("Reward Gagal Masuk.")
 
 
-
-def punish(jawaban, score):
-    global mycursor
-    global mydb
+def punish(jawaban_id):
     sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
     mycursor.execute(sql_select_last_id)
     result = mycursor.fetchone()
     last_id = result[0] if result else None
 
     if last_id:
-        sql_update_score = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        sql_update_score = "UPDATE jawaban SET score = score - (score - (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        print(sql_update_score)
         mycursor.execute(sql_update_score)
         mydb.commit()
-        print("punish Score berhasil diperbarui.")
+        print("Punish Score diperbarui.")
     else:
-        print("Tidak ada data jawaban untuk diperbarui.")
-    
-    return "Punish handled successfully"  # Pastikan untuk memberikan respon dari fungsi rute
-
-
-# def punish(jawaban, score):
-#     try:
-#         mydb = mysql.connector.connect(
-#             host="localhost",
-#             user="root",
-#             password="",
-#             database="chatbot"
-#         )
-#         mycursor = mydb.cursor()
-
-#         # Query SQL dengan placeholder untuk parameter
-#         sql = "UPDATE jawaban SET score = score - 100 WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-#         val = (jawaban, score)
-
-#         # Eksekusi query dengan parameter yang diberikan
-#         mycursor.execute(sql, val)
-
-#         mydb.commit()
-
-#         print(mycursor.rowcount, "record inserted.")
-
-#     except mysql.connector.Error as error:
-#         print("Failed to insert record into MySQL table:", error)
-
-#     finally:
-#         if mydb.is_connected():
-#             mycursor.close()
-#             mydb.close()
-
+        print("Punish Gagal dimasukkan.")
 
 
 if __name__ == "__main__":
