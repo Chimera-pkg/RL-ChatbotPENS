@@ -107,13 +107,14 @@ def get_bot_response():
         most_similar_idx = np.argmax(cosine_similarities)
         jawaban = dataset['answer'][most_similar_idx]
         cosine_similarity_value = float(cosine_sim[most_similar_idx])
+        validateRL(cosine_similarity_value,jawaban)
         sql = "INSERT INTO jawaban (jawaban, cosine, score) VALUES (%s, %s, 1)"
-        val = (jawaban, cosine_similarity_value)
+        val = (jawaban, cosine_similarity_value,)
         mycursor.execute(sql, val)
         mydb.commit()
         print("\nAnswer:")
         print(jawaban)
-        print("Cosine Similarity:", cosine_similarity_value)
+        # print("Cosine Similarity:", cosine_similarity_value)
         response = {
             'jawaban': jawaban
         }
@@ -154,10 +155,11 @@ def reward(jawaban_id):
 
     if last_id:
         sql_update_score = "UPDATE jawaban SET score = score + (score + (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-        print(sql_update_score)
         mycursor.execute(sql_update_score)
         mydb.commit()
         print("Reward Score berhasil diperbarui.")
+        answerRL()
+        
     else:
         print("Reward Gagal Masuk.")
 
@@ -177,33 +179,27 @@ def punish(jawaban_id):
     else:
         print("Punish Gagal dimasukkan.")
 
-def validateRL():
-    query = request.args.get('msg')
-    processed_query = text_preprocessing(query)
-    tokens_query = text_tokenizing(processed_query)
-    filtered_tokens_query = text_filtering(tokens_query)
-    stemmed_tokens_query = text_stemming(filtered_tokens_query)
-    processed_query = ' '.join(stemmed_tokens_query)
-    vectorizer = TfidfVectorizer()
-
-    if os.path.exists('tfidf_matrix_dataset.pkl'):
-        tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
-        vectorizer.fit(processed_texts)
-        tfidf_matrix_query = vectorizer.transform([processed_query])
-    else:
-        tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
-        tfidf_matrix_query = vectorizer.transform([processed_query])
-        joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
-
-    tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
-    cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
-    cosine_sim = cosine_similarity(tfidf_matrix_dataset, tfidf_matrix_query)
-    most_similar_idx = np.argmax(cosine_similarities)
-    cosine_similarity_value = float(cosine_sim[most_similar_idx])
-
-    # Mendapatkan jawaban dari database berdasarkan score dan cosine similarity
+def validateRL(cosine_similarity_value,jawaban):
     sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 1"
     mycursor.execute(sql)
+    result = mycursor.fetchone()
+    if result:
+        jawaban, cosine_similarity_value, score = result
+        print("\nAnswer:")
+        print(jawaban)
+        print("Cosine Similarity:", cosine_similarity_value)
+        print("Score:", score)
+
+        response = {
+            'jawaban': jawaban,
+            'cosine_similarity': cosine_similarity_value,
+            'score': score
+        }
+        return jsonify(response)
+    else:
+        return jsonify({'error': 'No answer found'})
+
+def answerRL():
     result = mycursor.fetchone()
     if result:
         jawaban, cosine_similarity_value, score = result
