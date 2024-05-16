@@ -108,7 +108,11 @@ def get_bot_response():
         jawaban = dataset['answer'][most_similar_idx]
         cosine_similarity_value = float(cosine_sim[most_similar_idx])
         validateRL(cosine_similarity_value,jawaban)
-        pertanyaan_id = 1
+        ambil_pertanyaan = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
+        mycursor.execute(ambil_pertanyaan)
+        result = mycursor.fetchone()
+        print(result)
+        pertanyaan_id = result[0] if result else 1
         sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 1, %s)"
         val = (jawaban, cosine_similarity_value,pertanyaan_id)
         mycursor.execute(sql, val)
@@ -159,7 +163,6 @@ def reward(jawaban_id):
         mycursor.execute(sql_update_score)
         mydb.commit()
         print("Reward Score berhasil diperbarui.")
-        answerRL()
         
     else:
         print("Reward Gagal Masuk.")
@@ -180,43 +183,36 @@ def punish(jawaban_id):
     else:
         print("Punish Gagal dimasukkan.")
 
-def validateRL(cosine_similarity_value,jawaban):
-    sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 1"
+def validateRL(cosine_similarity_value, jawaban, score=None):
+    # Fetch the top three highest scored answers considering both cosine similarity and score
+    sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 3"
     mycursor.execute(sql)
-    result = mycursor.fetchone()
-    if result:
-        jawaban, cosine_similarity_value, score = result
-        print("\nAnswer:")
-        print(jawaban)
-        print("Cosine Similarity:", cosine_similarity_value)
-        print("Score:", score)
+    results = mycursor.fetchall()
 
-        response = {
-            'jawaban': jawaban,
-            'cosine_similarity': cosine_similarity_value,
-            'score': score
-        }
-        return jsonify(response)
+    if results:
+        top_answers = []
+        for result in results:
+            # Extract the values from each fetched row
+            best_jawaban, best_cosine_similarity_value, best_score = result
+
+            # Print and construct response for each of the top answers
+            print("\nTop Answer:")
+            print(best_jawaban)
+            print("Cosine Similarity:", best_cosine_similarity_value)
+            print("Score:", best_score)
+
+            response = {
+                'jawaban': best_jawaban,
+                'cosine_similarity': best_cosine_similarity_value,
+                'score': best_score
+            }
+            top_answers.append(response)
+        
+        return jsonify(top_answers)
     else:
         return jsonify({'error': 'No answer found'})
 
-def answerRL():
-    result = mycursor.fetchone()
-    if result:
-        jawaban, cosine_similarity_value, score = result
-        print("\nAnswer:")
-        print(jawaban)
-        print("Cosine Similarity:", cosine_similarity_value)
-        print("Score:", score)
 
-        response = {
-            'jawaban': jawaban,
-            'cosine_similarity': cosine_similarity_value,
-            'score': score
-        }
-        return jsonify(response)
-    else:
-        return jsonify({'error': 'No answer found'})
 
 if __name__ == "__main__":
     app.run()
