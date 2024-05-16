@@ -108,8 +108,9 @@ def get_bot_response():
         jawaban = dataset['answer'][most_similar_idx]
         cosine_similarity_value = float(cosine_sim[most_similar_idx])
         validateRL(cosine_similarity_value,jawaban)
-        sql = "INSERT INTO jawaban (jawaban, cosine, score) VALUES (%s, %s, 1)"
-        val = (jawaban, cosine_similarity_value,)
+        pertanyaan_id = 1
+        sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 1, %s)"
+        val = (jawaban, cosine_similarity_value,pertanyaan_id)
         mycursor.execute(sql, val)
         mydb.commit()
         print("\nAnswer:")

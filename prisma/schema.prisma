@@ -8,16 +8,19 @@ datasource db {
 }
 
 model Pertanyaan {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   pertanyaan String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  jawaban   Jawaban[] // One-to-many relation to Jawaban
 }
 
 model Jawaban {
-  id        Int      @id @default(autoincrement())
-  jawaban   String
-  createdAt DateTime @default(now())
-  cosine    Float
-  score     Float
+  id           Int      @id @default(autoincrement())
+  pertanyaanId Int
+  jawaban      String
+  createdAt    DateTime @default(now())
+  cosine       Float
+  score        Float
+  pertanyaan   Pertanyaan @relation(fields: [pertanyaanId], references: [id]) // Setting up the relation and foreign key
 }
 

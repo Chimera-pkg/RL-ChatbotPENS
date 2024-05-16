@@ -2,6 +2,7 @@
 CREATE TABLE `Pertanyaan` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `pertanyaan` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -9,9 +10,14 @@ CREATE TABLE `Pertanyaan` (
 -- CreateTable
 CREATE TABLE `Jawaban` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `id_pertanyaan` INTEGER NOT NULL,
+    `pertanyaanId` INTEGER NOT NULL,
     `jawaban` VARCHAR(191) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `cosine` DOUBLE NOT NULL,
     `score` DOUBLE NOT NULL,
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `Jawaban` ADD CONSTRAINT `Jawaban_pertanyaanId_fkey` FOREIGN KEY (`pertanyaanId`) REFERENCES `Pertanyaan`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
