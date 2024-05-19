@@ -24,7 +24,7 @@ mydb = mysql.connector.connect(
 )
 mycursor = mydb.cursor()
 
-dataset = pd.read_csv('train_new.csv')
+dataset = pd.read_csv('reinforcement.csv')
 texts = dataset['question'].tolist()
 
 def text_preprocessing(text):
@@ -103,6 +103,7 @@ def get_bot_response():
 
         tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
         cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
+        top_3_indices = np.argsort(cosine_similarities[0])[-3:][::-1]
         cosine_sim = cosine_similarity(tfidf_matrix_dataset, tfidf_matrix_query)
         most_similar_idx = np.argmax(cosine_similarities)
         jawaban = dataset['answer'][most_similar_idx]
@@ -115,30 +116,38 @@ def get_bot_response():
         print(result)
         pertanyaan_id = result[0] if result else 1
         
-        # 3 Answer in a row
-        # jawaban = []
-        # for idx in top_3
+        # Prepare the values for executemany
+        jawaban_values = []
+        for idx in top_3_indices:
+            answer = dataset.iloc[idx]['answer']
+            answer2 = dataset.iloc[idx].get('answer2', '')
+            answer3 = dataset.iloc[idx].get('answer3', '')
+            cosine_similarity_value = float(cosine_similarities[0][idx])
+            jawaban_values.extend([
+                (answer, cosine_similarity_value, pertanyaan_id),
+                (answer2, cosine_similarity_value, pertanyaan_id),
+                (answer3, cosine_similarity_value, pertanyaan_id)
+        ])
 
-        sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 1, %s)"
-        val = (jawaban, cosine_similarity_value,pertanyaan_id)
-        mycursor.execute(sql, val)
+        sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
+        mycursor.executemany(sql, jawaban_values)
         mydb.commit()
-        print("\nAnswer:")
-        print(jawaban)
-        # print("Cosine Similarity:", cosine_similarity_value)
+
+        # Fetch the top 3 responses based on cosine similarity from the database
+        mycursor.execute("""
+            SELECT jawaban FROM jawaban 
+            WHERE pertanyaanId = %s 
+            ORDER BY score DESC 
+            LIMIT 1
+        """, (pertanyaan_id,))
+        top_responses = mycursor.fetchall()
+
         response = {
-            'jawaban': jawaban
+            'jawaban': [row[0] for row in top_responses]
         }
+        print(jawaban)
+
         return jsonify(response)
-
-def response_path():
-    data = request.get_json()
-    if data is not None and 'yes' in data and 'no' in data:
-        print('json masuk')
-    else:
-        print('Invalid JSON data')
-
-
 
 @app.route("/response", methods=['GET', 'POST'])
 def handle_response():
