@@ -128,7 +128,7 @@ def get_bot_response():
         
         # Prepare the values for executemany
         jawaban_values = []
-        existing_answers = set()  # Membuat set untuk menyimpan jawaban yang sudah ada
+        checked_answers = set()
 
         for idx in top_3_indices:
             answer = dataset.iloc[idx]['answer']
@@ -137,17 +137,19 @@ def get_bot_response():
             cosine_similarity_value = float(cosine_similarities[0][idx])
 
             # Pengecekan jawaban 1
-            mycursor.execute("""
-                SELECT COUNT(*) FROM jawaban 
-                WHERE jawaban = %s AND pertanyaanId = %s
-            """, (answer, pertanyaan_id))
-            count = mycursor.fetchone()[0]
+            if (answer, pertanyaan_id) not in checked_answers:
+                mycursor.execute("""
+                    SELECT COUNT(*) FROM jawaban 
+                    WHERE jawaban = %s AND pertanyaanId = %s
+                """, (answer, pertanyaan_id))
+                count = mycursor.fetchone()[0]
 
-            if count == 0:
-                jawaban_values.append((answer, cosine_similarity_value, pertanyaan_id))
+                if count == 0:
+                    jawaban_values.append((answer, cosine_similarity_value, pertanyaan_id))
+                checked_answers.add((answer, pertanyaan_id))
 
             # Pengecekan jawaban 2
-            if answer2:
+            if answer2 and (answer2, pertanyaan_id) not in checked_answers:
                 mycursor.execute("""
                     SELECT COUNT(*) FROM jawaban 
                     WHERE jawaban = %s AND pertanyaanId = %s
@@ -156,9 +158,10 @@ def get_bot_response():
 
                 if count == 0:
                     jawaban_values.append((answer2, cosine_similarity_value, pertanyaan_id))
+                checked_answers.add((answer2, pertanyaan_id))
 
             # Pengecekan jawaban 3
-            if answer3:
+            if answer3 and (answer3, pertanyaan_id) not in checked_answers:
                 mycursor.execute("""
                     SELECT COUNT(*) FROM jawaban 
                     WHERE jawaban = %s AND pertanyaanId = %s
@@ -167,11 +170,12 @@ def get_bot_response():
 
                 if count == 0:
                     jawaban_values.append((answer3, cosine_similarity_value, pertanyaan_id))
+                checked_answers.add((answer3, pertanyaan_id))
 
-
-        sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
+        sql = "INSERT IGNORE INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
         mycursor.executemany(sql, jawaban_values)
         mydb.commit()
+
 
         # Fetch the top 3 responses based on cosine similarity from the database
         mycursor.execute("""
@@ -239,34 +243,34 @@ def punish(jawaban_id):
     else:
         print("Punish Gagal dimasukkan.")
 
-def validateRL(cosine_similarity_value, jawaban, score=None):
-    # Fetch the top three highest scored answers considering both cosine similarity and score
-    sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 3"
-    mycursor.execute(sql)
-    results = mycursor.fetchall()
+# def validateRL(cosine_similarity_value, jawaban, score=None):
+#     # Fetch the top three highest scored answers considering both cosine similarity and score
+#     sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 3"
+#     mycursor.execute(sql)
+#     results = mycursor.fetchall()
 
-    if results:
-        top_answers = []
-        for result in results:
-            # Extract the values from each fetched row
-            best_jawaban, best_cosine_similarity_value, best_score = result
+#     if results:
+#         top_answers = []
+#         for result in results:
+#             # Extract the values from each fetched row
+#             best_jawaban, best_cosine_similarity_value, best_score = result
 
-            # Print and construct response for each of the top answers
-            print("\nTop Answer:")
-            print(best_jawaban)
-            print("Cosine Similarity:", best_cosine_similarity_value)
-            print("Score:", best_score)
+#             # Print and construct response for each of the top answers
+#             print("\nTop Answer:")
+#             print(best_jawaban)
+#             print("Cosine Similarity:", best_cosine_similarity_value)
+#             print("Score:", best_score)
 
-            response = {
-                'jawaban': best_jawaban,
-                'cosine_similarity': best_cosine_similarity_value,
-                'score': best_score
-            }
-            top_answers.append(response)
+#             response = {
+#                 'jawaban': best_jawaban,
+#                 'cosine_similarity': best_cosine_similarity_value,
+#                 'score': best_score
+#             }
+#             top_answers.append(response)
         
-        return jsonify(top_answers)
-    else:
-        return jsonify({'error': 'No answer found'})
+#         return jsonify(top_answers)
+#     else:
+#         return jsonify({'error': 'No answer found'})
 
 
 
