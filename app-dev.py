@@ -81,9 +81,19 @@ def home():
 @app.route("/get", methods=['GET','POST'])
 def get_bot_response():
         query = request.args.get('msg')
-        sql = "INSERT INTO pertanyaan (pertanyaan) VALUES (%s)"
-        val = (query,)
-        mycursor.execute(sql,val)
+        sql_check = "SELECT pertanyaan FROM pertanyaan WHERE pertanyaan = %s"
+        val_check = (query,)
+        mycursor.execute(sql_check, val_check)
+        existing_question = mycursor.fetchone()
+
+        if existing_question:
+            print("Pertanyaan sudah ada dalam database")
+        else:
+            sql_insert = "INSERT INTO pertanyaan (pertanyaan) VALUES (%s)"
+            val_insert = (query,)
+            mycursor.execute(sql_insert, val_insert)
+            print("Pertanyaan berhasil dimasukkan")
+
         processed_query = text_preprocessing(query)
         tokens_query = text_tokenizing(processed_query)
         filtered_tokens_query = text_filtering(tokens_query)
@@ -108,8 +118,8 @@ def get_bot_response():
         most_similar_idx = np.argmax(cosine_similarities)
         jawaban = dataset['answer'][most_similar_idx]
         cosine_similarity_value = float(cosine_sim[most_similar_idx])
+        # validateRL(cosine_similarity_value,jawaban)  
         
-        # validateRL(cosine_similarity_value,jawaban)
         ambil_pertanyaan = "SELECT id FROM pertanyaan ORDER BY createdAt DESC LIMIT 1"
         mycursor.execute(ambil_pertanyaan)
         result = mycursor.fetchone()
@@ -118,16 +128,46 @@ def get_bot_response():
         
         # Prepare the values for executemany
         jawaban_values = []
+        existing_answers = set()  # Membuat set untuk menyimpan jawaban yang sudah ada
+
         for idx in top_3_indices:
             answer = dataset.iloc[idx]['answer']
             answer2 = dataset.iloc[idx].get('answer2', '')
             answer3 = dataset.iloc[idx].get('answer3', '')
             cosine_similarity_value = float(cosine_similarities[0][idx])
-            jawaban_values.extend([
-                (answer, cosine_similarity_value, pertanyaan_id),
-                (answer2, cosine_similarity_value, pertanyaan_id),
-                (answer3, cosine_similarity_value, pertanyaan_id)
-        ])
+
+            # Pengecekan jawaban 1
+            mycursor.execute("""
+                SELECT COUNT(*) FROM jawaban 
+                WHERE jawaban = %s AND pertanyaanId = %s
+            """, (answer, pertanyaan_id))
+            count = mycursor.fetchone()[0]
+
+            if count == 0:
+                jawaban_values.append((answer, cosine_similarity_value, pertanyaan_id))
+
+            # Pengecekan jawaban 2
+            if answer2:
+                mycursor.execute("""
+                    SELECT COUNT(*) FROM jawaban 
+                    WHERE jawaban = %s AND pertanyaanId = %s
+                """, (answer2, pertanyaan_id))
+                count = mycursor.fetchone()[0]
+
+                if count == 0:
+                    jawaban_values.append((answer2, cosine_similarity_value, pertanyaan_id))
+
+            # Pengecekan jawaban 3
+            if answer3:
+                mycursor.execute("""
+                    SELECT COUNT(*) FROM jawaban 
+                    WHERE jawaban = %s AND pertanyaanId = %s
+                """, (answer3, pertanyaan_id))
+                count = mycursor.fetchone()[0]
+
+                if count == 0:
+                    jawaban_values.append((answer3, cosine_similarity_value, pertanyaan_id))
+
 
         sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
         mycursor.executemany(sql, jawaban_values)
@@ -148,6 +188,7 @@ def get_bot_response():
         print(jawaban)
 
         return jsonify(response)
+
 
 @app.route("/response", methods=['GET', 'POST'])
 def handle_response():
