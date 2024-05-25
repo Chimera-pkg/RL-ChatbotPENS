@@ -78,11 +78,13 @@ app.static_folder = 'static'
 def home():
     return render_template("index.html")
 
-@app.route("/get", methods=['GET','POST'])
-def get_bot_response():
-        query = request.args.get('msg')
+class QuestionCheck:
+    def __init__(self, query):
+        self.query = query
+
+    def check_question(self):
         sql_check = "SELECT pertanyaan FROM pertanyaan WHERE pertanyaan = %s"
-        val_check = (query,)
+        val_check = (self.query,)
         mycursor.execute(sql_check, val_check)
         existing_question = mycursor.fetchone()
 
@@ -90,108 +92,96 @@ def get_bot_response():
             print("Pertanyaan sudah ada dalam database")
         else:
             sql_insert = "INSERT INTO pertanyaan (pertanyaan) VALUES (%s)"
-            val_insert = (query,)
+            val_insert = (self.query,)
             mycursor.execute(sql_insert, val_insert)
             print("Pertanyaan berhasil dimasukkan")
 
-        processed_query = text_preprocessing(query)
-        tokens_query = text_tokenizing(processed_query)
-        filtered_tokens_query = text_filtering(tokens_query)
-        stemmed_tokens_query = text_stemming(filtered_tokens_query)
-        processed_query = ' '.join(stemmed_tokens_query)
-        vectorizer = TfidfVectorizer()
+@app.route("/get", methods=['GET','POST'])
+def get_bot_response():
+    query = request.args.get('msg')
+    
+    question_checker = QuestionCheck(query)
+    question_checker.check_question()
+    
+    # Preprocess
+    processed_query = text_preprocessing(query)
+    tokens_query = text_tokenizing(processed_query)
+    filtered_tokens_query = text_filtering(tokens_query)
+    stemmed_tokens_query = text_stemming(filtered_tokens_query)
+    processed_query = ' '.join(stemmed_tokens_query)
+    vectorizer = TfidfVectorizer()
 
-        if os.path.exists('tfidf_matrix_dataset.pkl'):
-            tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
-            vectorizer.fit(processed_texts)
-            tfidf_matrix_query = vectorizer.transform([processed_query])
+    # TF IDF
+    if os.path.exists('tfidf_matrix_dataset.pkl'):
+        tfidf_matrix_dataset = joblib.load('tfidf_matrix_dataset.pkl')
+        vectorizer.fit(processed_texts)
+        tfidf_matrix_query = vectorizer.transform([processed_query])
+    else:
+        tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
+        tfidf_matrix_query = vectorizer.transform([processed_query])
+        joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
 
-        else:
-            tfidf_matrix_dataset = vectorizer.fit_transform(processed_texts)
-            tfidf_matrix_query = vectorizer.transform([processed_query])
-            joblib.dump(tfidf_matrix_dataset, 'tfidf_matrix_dataset.pkl')
+    # Cosine
+    tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
+    cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
+    cosine_sim = cosine_similarity(tfidf_matrix_dataset, tfidf_matrix_query)
+    most_similar_idx = np.argmax(cosine_similarities)
 
-        tfidf_matrix = vstack([tfidf_matrix_dataset, tfidf_matrix_query])
-        cosine_similarities = cosine_similarity(tfidf_matrix[-1], tfidf_matrix[:-1])
-        top_3_indices = np.argsort(cosine_similarities[0])[-3:][::-1]
-        cosine_sim = cosine_similarity(tfidf_matrix_dataset, tfidf_matrix_query)
-        most_similar_idx = np.argmax(cosine_similarities)
-        jawaban = dataset['answer'][most_similar_idx]
-        cosine_similarity_value = float(cosine_sim[most_similar_idx])
-        # validateRL(cosine_similarity_value,jawaban)  
-        
-        ambil_pertanyaan = "SELECT id FROM pertanyaan ORDER BY createdAt DESC LIMIT 1"
-        mycursor.execute(ambil_pertanyaan)
-        result = mycursor.fetchone()
-        print(result)
-        pertanyaan_id = result[0] if result else 1
-        
-        # Prepare the values for executemany
-        jawaban_values = []
-        checked_answers = set()
+    jawaban = dataset['answer'][most_similar_idx]
+    cosine_similarity_value = float(cosine_sim[most_similar_idx])
 
-        for idx in top_3_indices:
-            answer = dataset.iloc[idx]['answer']
-            answer2 = dataset.iloc[idx].get('answer2', '')
-            answer3 = dataset.iloc[idx].get('answer3', '')
-            cosine_similarity_value = float(cosine_similarities[0][idx])
+    # Get ID by pertanyaan
+    ambil_pertanyaan = "SELECT id FROM pertanyaan ORDER BY createdAt DESC LIMIT 1"
+    mycursor.execute(ambil_pertanyaan)
+    result = mycursor.fetchone()
+    pertanyaan_id = result[0] if result else 1
 
-            # Pengecekan jawaban 1
-            if (answer, pertanyaan_id) not in checked_answers:
+    # Filter dataset for the input query
+    filtered_dataset = dataset[dataset['question'] == query]
+    
+    jawaban_values = []
+    checked_answers = set()
+
+    for idx, row in filtered_dataset.iterrows():
+        answer = row['answer']
+        answer2 = row.get('answer2', '')
+        answer3 = row.get('answer3', '')
+        cosine_similarity_value = float(cosine_similarities[0][idx])
+
+        for ans in [answer, answer2, answer3]:
+            if ans and (ans, pertanyaan_id) not in checked_answers:
                 mycursor.execute("""
                     SELECT COUNT(*) FROM jawaban 
                     WHERE jawaban = %s AND pertanyaanId = %s
-                """, (answer, pertanyaan_id))
+                """, (ans, pertanyaan_id))
                 count = mycursor.fetchone()[0]
 
                 if count == 0:
-                    jawaban_values.append((answer, cosine_similarity_value, pertanyaan_id))
-                checked_answers.add((answer, pertanyaan_id))
+                    jawaban_values.append((ans, cosine_similarity_value, pertanyaan_id))
+                checked_answers.add((ans, pertanyaan_id))
 
-            # Pengecekan jawaban 2
-            if answer2 and (answer2, pertanyaan_id) not in checked_answers:
-                mycursor.execute("""
-                    SELECT COUNT(*) FROM jawaban 
-                    WHERE jawaban = %s AND pertanyaanId = %s
-                """, (answer2, pertanyaan_id))
-                count = mycursor.fetchone()[0]
+    # Store Answer DB
+    sql = "INSERT IGNORE INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
+    mycursor.executemany(sql, jawaban_values)
+    mydb.commit()
 
-                if count == 0:
-                    jawaban_values.append((answer2, cosine_similarity_value, pertanyaan_id))
-                checked_answers.add((answer2, pertanyaan_id))
+    # Checking Answer To Show Bubble Chat HTML
+    mycursor.execute("""
+        SELECT jawaban FROM jawaban 
+        WHERE pertanyaanId = %s 
+        ORDER BY score DESC 
+        LIMIT 1
+    """, (pertanyaan_id,))
+    top_responses = mycursor.fetchall()
 
-            # Pengecekan jawaban 3
-            if answer3 and (answer3, pertanyaan_id) not in checked_answers:
-                mycursor.execute("""
-                    SELECT COUNT(*) FROM jawaban 
-                    WHERE jawaban = %s AND pertanyaanId = %s
-                """, (answer3, pertanyaan_id))
-                count = mycursor.fetchone()[0]
+    # Show Answer Bubble Chat HTML
+    response = {
+        'jawaban': [row[0] for row in top_responses]
+    }
+    print(jawaban)
 
-                if count == 0:
-                    jawaban_values.append((answer3, cosine_similarity_value, pertanyaan_id))
-                checked_answers.add((answer3, pertanyaan_id))
+    return jsonify(response)
 
-        sql = "INSERT IGNORE INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
-        mycursor.executemany(sql, jawaban_values)
-        mydb.commit()
-
-
-        # Fetch the top 3 responses based on cosine similarity from the database
-        mycursor.execute("""
-            SELECT jawaban FROM jawaban 
-            WHERE pertanyaanId = %s 
-            ORDER BY score DESC 
-            LIMIT 1
-        """, (pertanyaan_id,))
-        top_responses = mycursor.fetchall()
-
-        response = {
-            'jawaban': [row[0] for row in top_responses]
-        }
-        print(jawaban)
-
-        return jsonify(response)
 
 
 @app.route("/response", methods=['GET', 'POST'])
@@ -213,19 +203,19 @@ def handle_response():
 
 
 def reward(jawaban_id):
-    sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
-    mycursor.execute(sql_select_last_id)
+    sql_select_id = "SELECT id FROM jawaban WHERE id = %s"
+    mycursor.execute(sql_select_id, (jawaban_id,))
     result = mycursor.fetchone()
-    last_id = result[0] if result else None
+    selected_id = result[0] if result else None
 
-    if last_id:
-        sql_update_score = "UPDATE jawaban SET score = score + (score + (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-        mycursor.execute(sql_update_score)
+    if selected_id:
+        sql_update_score = "UPDATE jawaban SET score = score + (0.1 * score) WHERE id = %s"
+        mycursor.execute(sql_update_score, (jawaban_id,))
         mydb.commit()
         print("Reward Score berhasil diperbarui.")
-        
     else:
         print("Reward Gagal Masuk.")
+
 
 
 def punish(jawaban_id):
@@ -242,36 +232,6 @@ def punish(jawaban_id):
         print("Punish Score diperbarui.")
     else:
         print("Punish Gagal dimasukkan.")
-
-# def validateRL(cosine_similarity_value, jawaban, score=None):
-#     # Fetch the top three highest scored answers considering both cosine similarity and score
-#     sql = "SELECT jawaban, cosine, score FROM jawaban ORDER BY score DESC, cosine DESC LIMIT 3"
-#     mycursor.execute(sql)
-#     results = mycursor.fetchall()
-
-#     if results:
-#         top_answers = []
-#         for result in results:
-#             # Extract the values from each fetched row
-#             best_jawaban, best_cosine_similarity_value, best_score = result
-
-#             # Print and construct response for each of the top answers
-#             print("\nTop Answer:")
-#             print(best_jawaban)
-#             print("Cosine Similarity:", best_cosine_similarity_value)
-#             print("Score:", best_score)
-
-#             response = {
-#                 'jawaban': best_jawaban,
-#                 'cosine_similarity': best_cosine_similarity_value,
-#                 'score': best_score
-#             }
-#             top_answers.append(response)
-        
-#         return jsonify(top_answers)
-#     else:
-#         return jsonify({'error': 'No answer found'})
-
 
 
 if __name__ == "__main__":
