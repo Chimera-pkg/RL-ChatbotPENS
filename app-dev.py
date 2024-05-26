@@ -24,7 +24,7 @@ mydb = mysql.connector.connect(
 )
 mycursor = mydb.cursor()
 
-dataset = pd.read_csv('reinforcement.csv')
+dataset = pd.read_csv('SampleDataset.csv')
 texts = dataset['question'].tolist()
 
 def text_preprocessing(text):
@@ -99,6 +99,7 @@ class QuestionCheck:
 @app.route("/get", methods=['GET','POST'])
 def get_bot_response():
     query = request.args.get('msg')
+    print(query)
     
     question_checker = QuestionCheck(query)
     question_checker.check_question()
@@ -131,7 +132,7 @@ def get_bot_response():
     cosine_similarity_value = float(cosine_sim[most_similar_idx])
 
     # Get ID by pertanyaan
-    ambil_pertanyaan = "SELECT id FROM pertanyaan ORDER BY createdAt DESC LIMIT 1"
+    ambil_pertanyaan = "SELECT id FROM pertanyaan  ORDER BY createdAt DESC LIMIT 1" #diganti Pertanyaan ->  Sintaks LIKE(Pengganti whre) #tidak bisa filter secara spesifik
     mycursor.execute(ambil_pertanyaan)
     result = mycursor.fetchone()
     pertanyaan_id = result[0] if result else 1
@@ -139,6 +140,7 @@ def get_bot_response():
     # Filter dataset for the input query
     filtered_dataset = dataset[dataset['question'] == query]
     
+    # Check Multiple Answer existed in DB
     jawaban_values = []
     checked_answers = set()
 
@@ -173,6 +175,8 @@ def get_bot_response():
         LIMIT 1
     """, (pertanyaan_id,))
     top_responses = mycursor.fetchall()
+    # print("isi top responses")
+    # print(top_responses)
 
     # Show Answer Bubble Chat HTML
     response = {
@@ -192,6 +196,8 @@ def handle_response():
 
         if response == "yes":
             jawaban = data.get("jawaban")
+            print("ISI HANDLE RESPONSE")
+            print(jawaban)
             reward(jawaban)
         else:
             jawaban = data.get("jawaban")
@@ -202,8 +208,10 @@ def handle_response():
         return "Invalid method"
 
 
-def reward(jawaban_id):
-    sql_select_id = "SELECT id FROM jawaban WHERE id = %s"
+def reward(jawaban_id): #how to Parsing jawaban_id
+    print("ISI JAWABAN ID dari parsing an")
+    print(jawaban_id)
+    sql_select_id = "SELECT id FROM jawaban WHERE id = %s" # Belum adannya jawaban id yang diget
     mycursor.execute(sql_select_id, (jawaban_id,))
     result = mycursor.fetchone()
     selected_id = result[0] if result else None
