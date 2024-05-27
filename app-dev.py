@@ -99,7 +99,7 @@ class QuestionCheck:
 @app.route("/get", methods=['GET','POST'])
 def get_bot_response():
     query = request.args.get('msg')
-    print(query)
+    print(f"Query: {query}")
     
     question_checker = QuestionCheck(query)
     question_checker.check_question()
@@ -132,14 +132,22 @@ def get_bot_response():
     cosine_similarity_value = float(cosine_sim[most_similar_idx])
 
     # Get ID by pertanyaan
-    ambil_pertanyaan = "SELECT id FROM pertanyaan  ORDER BY createdAt DESC LIMIT 1" #diganti Pertanyaan ->  Sintaks LIKE(Pengganti whre) #tidak bisa filter secara spesifik
-    mycursor.execute(ambil_pertanyaan)
+    mycursor.execute("SELECT id FROM pertanyaan WHERE pertanyaan LIKE %s ORDER BY createdAt DESC LIMIT 1", (f"%{query}%",))
     result = mycursor.fetchone()
     pertanyaan_id = result[0] if result else 1
+    print(f"Pertanyaan ID: {pertanyaan_id}")
 
-    # Filter dataset for the input query
-    filtered_dataset = dataset[dataset['question'] == query]
-    
+    # Convert dataset questions to lowercase for case-insensitive comparison
+    dataset['question'] = dataset['question'].str.lower()
+    query_lower = query.lower()
+
+    # Print the full dataset for debugging
+    print(f"Dataset: {dataset}")
+
+    # Filter dataset for the input query (case-insensitive)
+    filtered_dataset = dataset[dataset['question'] == query_lower]
+    print(f"Filtered Dataset: {filtered_dataset}")
+
     # Check Multiple Answer existed in DB
     jawaban_values = []
     checked_answers = set()
@@ -162,10 +170,14 @@ def get_bot_response():
                     jawaban_values.append((ans, cosine_similarity_value, pertanyaan_id))
                 checked_answers.add((ans, pertanyaan_id))
 
+    # Debugging: Check the answers to be inserted
+    print(f"Jawaban Values: {jawaban_values}")
+
     # Store Answer DB
-    sql = "INSERT IGNORE INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
-    mycursor.executemany(sql, jawaban_values)
-    mydb.commit()
+    if jawaban_values:  # Ensure there are values to insert
+        sql = "INSERT INTO jawaban (jawaban, cosine, score, pertanyaanId) VALUES (%s, %s, 3, %s)"
+        mycursor.executemany(sql, jawaban_values)
+        mydb.commit()
 
     # Checking Answer To Show Bubble Chat HTML
     mycursor.execute("""
@@ -175,17 +187,15 @@ def get_bot_response():
         LIMIT 1
     """, (pertanyaan_id,))
     top_responses = mycursor.fetchall()
-    # print("isi top responses")
-    # print(top_responses)
+    print(f"Top Responses: {top_responses}")
 
     # Show Answer Bubble Chat HTML
     response = {
         'jawaban': [row[0] for row in top_responses]
     }
-    print(jawaban)
+    print(f"Response: {response}")
 
     return jsonify(response)
-
 
 
 @app.route("/response", methods=['GET', 'POST'])
