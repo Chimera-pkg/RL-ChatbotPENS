@@ -205,22 +205,13 @@ def get_bot_response():
     for jawaban_info in jawaban_id_score:
         print(f"Answer ID: {jawaban_info['jawaban_id']}, Score: {jawaban_info['score']}")
 
-    # Get the highest score response
-    top_response = max(jawaban_id_score, key=lambda x: x['score']) if jawaban_id_score else {'jawaban_id': None, 'score': None}
-    
-    # Assuming there is a `jawaban` column in the `jawaban` table, we need to fetch the highest scored jawaban's text
-    if top_response['jawaban_id']:
-        mycursor.execute("SELECT jawaban FROM jawaban WHERE id = %s", (top_response['jawaban_id'],))
-        jawaban_text_result = mycursor.fetchone()
-        jawaban_text = jawaban_text_result[0] if jawaban_text_result else ''
-    else:
-        jawaban_text = ''
-
+    # Sort and prepare the response
+    top_responses = sorted(jawaban_id_score, key=lambda x: x['score'], reverse=True)
     response = {
-        'jawaban': jawaban_text,
-        'jawaban_id': top_response['jawaban_id'],
+        'jawaban': [jawaban_info['jawaban_id'] for jawaban_info in top_responses],
+        'jawaban_id': [jawaban_info['jawaban_id'] for jawaban_info in top_responses],
         'pertanyaan_id': pertanyaan_id,
-        'score': top_response['score']
+        'score': [jawaban_info['score'] for jawaban_info in top_responses]
     }
     print(f"Response: {response}")
 
@@ -233,27 +224,26 @@ def handle_response():
         data = request.get_json()
         response = data.get('response')
         jawaban_id = data.get('jawaban_id')
+        pertanyaan_id = data.get('pertanyaan_id')
         score = data.get('score')
 
         if not jawaban_id:
             return jsonify({"status": "failed", "message": "jawaban_id is required"}), 400
 
         if response == "yes":
-            return reward(jawaban_id)
-        elif response == "no":
-            return punish(jawaban_id)
+            return reward(jawaban_id, pertanyaan_id, score)
         else:
-            return jsonify({"status": "failed", "message": "awokwok tolol"}), 400
+            return punish(jawaban_id, pertanyaan_id, score)
 
-    return jsonify({"status": "gagal ngentod", "message": "Invalid method"}), 405
+        return "Response handled successfully"
+    else:
+        return "Invalid method"
 
 
 def reward(jawaban_id): #how to Parsing jawaban_id
-    mycursor = mydb.cursor()
-    print("INI REWARD ANJING")
     print("ISI JAWABAN ID dari parsing an")
     print(jawaban_id)
-    sql_select_id = "SELECT id FROM jawaban WHERE id = %s"
+    sql_select_id = "SELECT id FROM jawaban WHERE id = %s" # Belum adannya jawaban id yang diget
     mycursor.execute(sql_select_id, (jawaban_id,))
     result = mycursor.fetchone()
     selected_id = result[0] if result else None
@@ -263,48 +253,25 @@ def reward(jawaban_id): #how to Parsing jawaban_id
         mycursor.execute(sql_update_score, (jawaban_id,))
         mydb.commit()
         print("Reward Score berhasil diperbarui.")
-        response = {'message': 'Reward Score berhasil diperbarui.'}
     else:
         print("Reward Gagal Masuk.")
-        response = {'error': 'Reward Gagal Masuk.'}
-
 
 
 
 def punish(jawaban_id):
-    mycursor = mydb.cursor()
-    print("INI PUNISH JANCOK")
-    print("ISI JAWABAN ID dari parsing an")
-    print(jawaban_id)
-    sql_select_id = "SELECT id FROM jawaban WHERE id = %s"
-    mycursor.execute(sql_select_id, (jawaban_id,))
+    sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
+    mycursor.execute(sql_select_last_id)
     result = mycursor.fetchone()
-    selected_id = result[0] if result else None
+    last_id = result[0] if result else None
 
-    if selected_id:
-        sql_update_score = "UPDATE jawaban SET score = score - (score - (0.1 * score)) WHERE id = %s"
-        mycursor.execute(sql_update_score, (jawaban_id,))
+    if last_id:
+        sql_update_score = "UPDATE jawaban SET score = score - (score - (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
+        print(sql_update_score)
+        mycursor.execute(sql_update_score)
         mydb.commit()
-        print("Punish Score berhasil diperbarui.")
-        response = {'message': 'Punish Score berhasil diperbarui.'}
+        print("Punish Score diperbarui.")
     else:
-        print("Punish Gagal Masuk.")
-        response = {'error': 'Punish Gagal Masuk.'}
-
-# def punish(jawaban_id):
-#     sql_select_last_id = "SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1"
-#     mycursor.execute(sql_select_last_id)
-#     result = mycursor.fetchone()
-#     last_id = result[0] if result else None
-
-#     if last_id:
-#         sql_update_score = "UPDATE jawaban SET score = score - (score - (0.1 * score)) WHERE id = (SELECT id FROM jawaban ORDER BY createdAt DESC LIMIT 1)"
-#         print(sql_update_score)
-#         mycursor.execute(sql_update_score)
-#         mydb.commit()
-#         print("Punish Score diperbarui.")
-#     else:
-#         print("Punish Gagal dimasukkan.")
+        print("Punish Gagal dimasukkan.")
 
 
 if __name__ == "__main__":

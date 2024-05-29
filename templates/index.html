@@ -68,7 +68,7 @@
             botResponse(msgText);
         });
 
-        function appendMessage(name, img, side, text, sendResponse) {
+        function appendMessage(name, img, side, text, sendResponse,score,response) {
     const msgHTML = `
         <div class="msg ${side}-msg">
             <div class="msg-img" style="background-image: url(${img})"></div>
@@ -81,8 +81,8 @@
                 ${side === 'left' ? `
                 <div class="msg-response-btn">
                     <h3>Apakah Jawaban ini membantu anda? </h3>
-                    <button type="submit" class="msg-response-btn" onclick="sendResponse('${sendResponse}', 'yes')">Ya</button>
-                    <button type="submit" class="msg-response-btn" onclick="sendResponse('${sendResponse}', 'no')">Tidak</button>
+                    <button type="submit" class="msg-response-btn" onclick="sendResponse('${score}', '${response}')">Ya</button>
+                    <button type="submit" class="msg-response-btn" onclick="sendResponse('${score}', '${response}')">Tidak</button>
                 </div>` : ''}
             </div>
         </div>
@@ -92,29 +92,38 @@
 }
 
 
-        function botResponse(rawText) {
-
-            // Bot Response
-            $.get("/get", { msg: rawText }).done(function (data) {
-                console.log(rawText);
-                console.log(data);
-                const msgText = data.jawaban;
-                appendMessage(BOT_NAME, BOT_IMG, "left", msgText);
-
-            });
-
-        }
+function botResponse(rawText) {
+    // Bot Response
+    $.get("/get", { msg: rawText }).done(function (data) {
+        console.log(rawText);
+        console.log(data);
+        const msgText = data.jawaban;
+        appendMessage(BOT_NAME, BOT_IMG, "left", msgText);
         
-    function sendResponse(score, response) {
-    console.log(score);
-    console.log(response); //parsing ID jawaban
+        // Mendapatkan jawaban_id dari data yang diterima
+        const jawabanID = data.jawaban_id;
+        
+        // Memanggil sendResponse dengan jawaban_id, response, dan score
+        sendResponse(jawabanID, data.pertanyaan_id, 'no', data.score); // misalnya, response diset sebagai 'yes'
+    });
+}
+
+        
+
+function sendResponse(jawabanID, pertanyaanID, score) {
+    const response = 'no'; // Set respons sebagai "yes"
 
     fetch("/response", {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json', // Tetapkan Content-Type ke application/json
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ response: response, score: score }), // Konversi data menjadi JSON string sebelum mengirim
+        body: JSON.stringify({
+            jawaban_id: jawabanID,
+            pertanyaan_id: pertanyaanID,
+            response: response,
+            score: score
+        }),
     })
     .then(response => {
         if (!response.ok) {
@@ -129,6 +138,7 @@
         console.error('Error:', error);
     });
 }
+
         // Utils
         function get(selector, root = document) {
             return root.querySelector(selector);
