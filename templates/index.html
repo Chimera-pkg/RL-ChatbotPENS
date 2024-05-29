@@ -132,54 +132,6 @@ function sendResponse(jawabanID, jawaban, pertanyaanID, score, response) {
         console.error('Error:', error);
     });
 }
-// function botResponse(rawText) {
-//     // Bot Response
-//     $.get("/get", { msg: rawText }).done(function (data) {
-//         console.log(rawText);
-//         console.log(data);
-//         const msgText = data.jawaban;
-//         appendMessage(BOT_NAME, BOT_IMG, "left", msgText);
-        
-//         // Mendapatkan jawaban_id dari data yang diterima
-//         const jawabanID = data.jawaban_id;
-//         const jawaban = data.jawaban
-//         const pertanyaanID = data.pertanyaan_id;
-//         const score = data.score;
-        
-//         // Memanggil sendResponse dengan jawaban_id, response, dan score
-//         sendResponse(jawabanID, jawaban,pertanyaanID,score); // misalnya, response diset sebagai 'yes'
-//     });
-// }
-
-        
-
-// function sendResponse(jawabanID, jawaban, pertanyaanID, score, response) {
-//     fetch("/response", {
-//         method: 'POST',
-//         headers: {
-//             'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({
-//             jawaban_id: jawabanID,
-//             jawaban: jawaban,
-//             pertanyaan_id: pertanyaanID,
-//             score: score,
-//             response: response,
-//         }),
-//     })
-//     .then(response => {
-//         if (!response.ok) {
-//             throw new Error('Network response was not ok');
-//         }
-//         return response.json();
-//     })
-//     .then(data => {
-//         console.log('Response from server:', data);
-//     })
-//     .catch(error => {
-//         console.error('Error:', error);
-//     });
-// }
 
 
         // Utils
