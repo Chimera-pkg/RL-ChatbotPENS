@@ -272,7 +272,7 @@ def reward(jawaban_id):
 
 def punish(jawaban_id):
     mycursor = mydb.cursor()
-    print("INI PUNISH JANCOK")
+    print("INI PUNISH ")
     print("ISI JAWABAN ID dari parsing an")
     print(jawaban_id)
     sql_select_id = "SELECT id FROM jawaban WHERE id = %s"

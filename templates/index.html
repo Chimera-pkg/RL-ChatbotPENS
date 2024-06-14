@@ -91,6 +91,11 @@
     msgerChat.scrollTop += 500;
 }
 
+// <h3>Apakah Jawaban ini membantu anda? </h3>
+//                     <button type="button" class="msg-response-btn" onclick="sendResponse('${jawabanID}', '${jawaban}', '${pertanyaanID}', '${score}', 'yes')">Ya</button>
+//                     <button type="button" class="msg-response-btn" onclick="sendResponse('${jawabanID}', '${jawaban}', '${pertanyaanID}', '${score}', 'no')">Tidak</button>
+
+
 function botResponse(rawText) {
     // Bot Response
     $.get("/get", { msg: rawText }).done(function (data) {
