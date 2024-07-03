@@ -88,6 +88,24 @@
     msgerChat.scrollTop += 500;
 }
 
+function createMessage(text, isRight) {
+    const msgContainer = document.createElement('div');
+    msgContainer.className = `msg ${isRight ? 'right-msg' : 'left-msg'}`;
+
+    const msgBubble = document.createElement('div');
+    msgBubble.className = 'msg-bubble';
+
+    const msgText = document.createElement('div');
+    msgText.className = 'typing-effect';
+    msgText.textContent = text;
+
+    msgBubble.appendChild(msgText);
+    msgContainer.appendChild(msgBubble);
+
+    return msgContainer;
+}
+
+
 // <h3>Apakah Jawaban ini membantu anda? </h3>
 //                     <button type="button" class="msg-response-btn" onclick="sendResponse('${jawabanID}', '${jawaban}', '${pertanyaanID}', '${score}', 'yes')">Ya</button>
 //                     <button type="button" class="msg-response-btn" onclick="sendResponse('${jawabanID}', '${jawaban}', '${pertanyaanID}', '${score}', 'no')">Tidak</button>
