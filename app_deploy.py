@@ -13,7 +13,7 @@ from scipy.sparse import vstack
 from flask import Flask, jsonify, render_template, request
 
 #MENGAMBIL DATASET
-dataset = pd.read_csv('datasetFiltered.csv')
+dataset = pd.read_csv('datasetFiltered.csv',encoding='cp1252')
 texts = dataset['pertanyaan'].tolist()
 
 

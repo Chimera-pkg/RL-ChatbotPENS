@@ -87,6 +87,50 @@ body {
     margin-bottom: 10px;
 }
 
+/* CSS untuk bagian div yang mengandung tombol */
+.msg-response-btn {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.msg-response-btn h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+/* CSS untuk tombol */
+.msg-response-btn button {
+    background-color: #4CAF50; /* Warna latar hijau */
+    border: none; /* Hapus border */
+    color: white; /* Warna teks putih */
+    padding: 10px 20px; /* Padding untuk ukuran tombol */
+    text-align: center; /* Pusatkan teks */
+    text-decoration: none; /* Hapus dekorasi teks */
+    display: inline-block; /* Tampilan inline-block */
+    font-size: 16px; /* Ukuran font */
+    margin: 4px 2px; /* Margin untuk ruang antar tombol */
+    cursor: pointer; /* Kursor pointer saat hover */
+    border-radius: 5px; /* Sudut tombol melengkung */
+    transition: background-color 0.3s, transform 0.3s; /* Transisi untuk efek hover */
+}
+
+/* Warna berbeda untuk tombol "Tidak" */
+.msg-response-btn button.no {
+    background-color: #f44336; /* Warna latar merah */
+}
+
+/* Efek hover untuk tombol */
+.msg-response-btn button:hover {
+    background-color: #3e8e41; /* Warna latar saat hover */
+    transform: scale(1.1); /* Membesarkan ukuran tombol saat hover */
+}
+
+/* Efek hover untuk tombol "Tidak" */
+.msg-response-btn button.no:hover {
+    background-color: #d32f2f; /* Warna latar merah gelap saat hover */
+}
+
 .msg-img {
     width: 50px;
     height: 50px;

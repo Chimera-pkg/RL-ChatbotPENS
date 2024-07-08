@@ -1,62 +1,54 @@
 import sacrebleu
 import matplotlib.pyplot as plt
-from nltk.corpus import wordnet
-
-def get_synonyms(word):
-    synonyms = set()
-    for syn in wordnet.synsets(word):
-        for lemma in syn.lemmas():
-            synonyms.add(lemma.name())
-    return list(synonyms)
-
-def replace_with_synonyms(text):
-    words = text.split()
-    new_text = []
-    for word in words:
-        synonyms = get_synonyms(word)
-        if synonyms:
-            new_text.append(synonyms[0])  # Pilih sinonim pertama
-        else:
-            new_text.append(word)
-    return ' '.join(new_text)
 
 def calculate_bleu(references, hypothesis):
-    return sacrebleu.corpus_bleu(hypothesis, [references]).score
+    # SacreBLEU expects references to be a list of list of strings and hypothesis to be a list of strings
+    return sacrebleu.corpus_bleu([hypothesis], references).score
 
-def plot_bleu_scores(scores, titles, labels):
+def plot_bleu_scores(with_synonym_scores, without_synonym_scores, titles):
     plt.figure(figsize=(10, 6))
-    for score, label in zip(scores, labels):
-        plt.plot(titles, score, label=label, marker='o')
+    plt.plot(titles, with_synonym_scores, 'o-', label='Dengan Pengenalan Sinonim')
+    plt.plot(titles, without_synonym_scores, 'o-', label='Tanpa Pengenalan Sinonim')
     plt.xlabel('Kasus Uji')
     plt.ylabel('Skor BLEU')
     plt.title('Perbandingan Skor BLEU dengan dan tanpa Pengenalan Sinonim')
+    plt.ylim(0, 1.1)
     plt.legend()
-    plt.ylim(0, 1)
     plt.show()
 
 if __name__ == "__main__":
-    # Contoh kalimat referensi dan hipotesis
+    # Data contoh untuk kasus uji
     references = [
-        'masa pengabdian komcad ada masa aktif dan tidak aktif masa aktif yaitu saat mengikuti pelatihan dan penyegaran dimana pelatihan penyegaran setiap tahun selama maksimal 90 hari dan minimal 12 hari sementara masa tidak aktif yaitu setelah selesai masa aktif dan kembali ke profesi semula',
-        # Tambahkan lebih banyak referensi sesuai kebutuhan
+        ['menurut anda, bagaimana peran tni dan polri dalam kestabilan politik dalam negeri'],
+        ['menurut anda, bagaimana peran tni dan polri dalam menjaga stabilitas politik dalam negeri'],
+        ['peran tni dan polri sangat penting dalam menjaga stabilitas politik'],
+        ['bagaimana menurut anda peran tni dan polri dalam stabilitas politik'],
+        ['seberapa penting peran tni dan polri dalam menjaga stabilitas politik dalam negeri']
     ]
-    hypotheses = [
-        'komcad memungkinkan memperbesar dan memperkuat komponen utama tni secara efisien tanpa harus memperbesar kekuatan tni yang membutuhkan anggaran jauh lebih besar praktik semacam ini juga dilakukan oleh negara negara yang memiliki anggaran serta kekuatan militer yang besar seperti as china rusia dan india',
-        # Tambahkan lebih banyak hipotesis sesuai kebutuhan
+    
+    hypotheses_with_synonym = [
+        'Bagaimana pandangan Anda tentang peran TNI dan Polri dalam menjaga stabilitas politik dalam negeri?',
+        'Bagaimana pandangan Anda tentang peran TNI dan Polri dalam menjaga stabilitas politik dalam negeri?',
+        'Peran TNI dan Polri sangat penting dalam menjaga stabilitas politik dalam negeri.',
+        'Bagaimana pandangan Anda tentang peran TNI dan Polri dalam menjaga stabilitas politik dalam negeri?',
+        'Seberapa penting peran TNI dan Polri dalam menjaga stabilitas politik dalam negeri?'
     ]
-
-    # Menghitung BLEU scores tanpa pengenalan sinonim
-    bleu_scores_no_synonyms = [calculate_bleu(references, [hypothesis]) for hypothesis in hypotheses]
-
-    # Menghitung BLEU scores dengan pengenalan sinonim
-    hypotheses_with_synonyms = [replace_with_synonyms(hypothesis) for hypothesis in hypotheses]
-    bleu_scores_with_synonyms = [calculate_bleu(references, [hypothesis]) for hypothesis in hypotheses_with_synonyms]
-
-    # Menampilkan hasil BLEU scores
-    print("BLEU Scores Tanpa Pengenalan Sinonim:", bleu_scores_no_synonyms)
-    print("BLEU Scores Dengan Pengenalan Sinonim:", bleu_scores_with_synonyms)
-
+    
+    hypotheses_without_synonym = [
+        'menurut pandangan anda peran TNI Polri kestabilan politik negeri',
+        'bagaimana pandangan Anda peran TNI Polri menjaga stabilitas politik dalam negeri',
+        'peran TNI Polri sangat penting dalam menjaga kestabilan politik',
+        'bagaimana menurut anda peran TNI Polri dalam kestabilan politik',
+        'seberapa penting peran TNI Polri menjaga kestabilan politik negeri'
+    ]
+    
+    # Menghitung BLEU scores dengan dan tanpa sinonim
+    with_synonym_scores = [calculate_bleu(references, hyp) for hyp in hypotheses_with_synonym]
+    without_synonym_scores = [calculate_bleu(references, hyp) for hyp in hypotheses_without_synonym]
+    
+    # Menampilkan hasil BLEU score
+    for i, (with_syn, without_syn) in enumerate(zip(with_synonym_scores, without_synonym_scores)):
+        print(f"Kasus {i+1} - Dengan Pengenalan Sinonim: {with_syn:.2f}, Tanpa Pengenalan Sinonim: {without_syn:.2f}")
+    
     # Plotting the BLEU scores
-    plot_bleu_scores([bleu_scores_no_synonyms, bleu_scores_with_synonyms], 
-                     list(range(1, len(hypotheses) + 1)), 
-                     ["Tanpa Pengenalan Sinonim", "Dengan Pengenalan Sinonim"])
+    plot_bleu_scores(with_synonym_scores, without_synonym_scores, list(range(1, len(references) + 1)))
